@@ -1,12 +1,33 @@
 import { saveSvgAsPng } from "save-svg-as-png";
 
-var React = require("react");
-var datamonkey = require("../../datamonkey/datamonkey.js");
+var React = require("react"),
+  createReactClass = require("create-react-class");
 var _ = require("underscore");
 var d3_save_svg = require("d3-save-svg");
 
+var OmegaPlot = createReactClass({
+  componentDidMount: function() {
+    this.initialize();
+  },
 
-var OmegaPlot = React.createClass({
+  componentWillReceiveProps: function(nextProps) {
+    this.setState({
+      omegas: nextProps.omegas
+    });
+  },
+
+  componentDidUpdate: function() {
+    d3.select("#" + this.svg_id).html("");
+    this.initialize();
+  },
+
+  getInitialState: function() {
+    return {
+      omegas: this.props.omegas,
+      settings: this.props.settings
+    };
+  },
+
   getDefaultProps: function() {
     return {
       svg_id: null,
@@ -16,17 +37,18 @@ var OmegaPlot = React.createClass({
       legend_id: null,
       do_log_plot: true,
       k_p: null,
-      plot: null
+      plot: null,
+      legendBuffer: 100
     };
   },
 
   initialize: function() {
-    if (!this.state.omegas || !this.state.omegas["Reference"]) {
+    if (!this.state.omegas || !this.state.omegas[this.props.referenceGroup]) {
       return;
     }
 
-    var data_to_plot = this.state.omegas["Reference"];
-    var secondary_data = this.state.omegas["Test"];
+    var data_to_plot = this.state.omegas[this.props.referenceGroup];
+    var secondary_data = this.state.omegas[this.props.testGroup];
 
     // Set props from settings
     this.svg_id = this.props.settings.svg_id;
@@ -54,10 +76,9 @@ var OmegaPlot = React.createClass({
     }
 
     (this.plot_width =
-      dimensions["width"] -
-      margins["left"] -
-      margins["right"]), (this.plot_height =
-      dimensions["height"] - margins["top"] - margins["bottom"]);
+      dimensions["width"] - margins["left"] - margins["right"]),
+      (this.plot_height =
+        dimensions["height"] - margins["top"] - margins["bottom"]);
 
     var domain =
       this.state.settings["domain"] ||
@@ -80,8 +101,11 @@ var OmegaPlot = React.createClass({
     domain[0] *= 0.5;
 
     this.omega_scale = (this.do_log_plot
-      ? this.has_zeros ? d3.scale.pow().exponent(0.2) : d3.scale.log()
-      : d3.scale.linear())
+      ? this.has_zeros
+        ? d3.scale.pow().exponent(0.2)
+        : d3.scale.log()
+      : d3.scale.linear()
+    )
       .range([0, this.plot_width])
       .domain(domain)
       .nice();
@@ -96,9 +120,10 @@ var OmegaPlot = React.createClass({
     // maximum diameter is (height - text margin)
     this.svg = d3
       .select("#" + this.svg_id)
-      .attr("width", dimensions.width)
+      .attr("width", dimensions.width + this.props.settings.legendBuffer)
       .attr("height", dimensions.height);
-    this.svg.append("rect")
+    this.svg
+      .append("rect")
       .attr("width", "100%")
       .attr("height", "100%")
       .attr("fill", "white");
@@ -130,9 +155,10 @@ var OmegaPlot = React.createClass({
     );
     (this.reference_omega_lines = this.plot.selectAll(
       ".hyphy-omega-line-reference"
-    )), (this.displacement_lines = this.plot.selectAll(
-      ".hyphy-displacement-line"
-    ));
+    )),
+      (this.displacement_lines = this.plot.selectAll(
+        ".hyphy-displacement-line"
+      ));
 
     this.createDisplacementLine();
     this.createNeutralLine();
@@ -140,7 +166,9 @@ var OmegaPlot = React.createClass({
     this.createReferenceLine();
     this.createXAxis();
     this.createYAxis();
+    this.createLegend();
   },
+
   makeSpring: function(x1, x2, y1, y2, step, displacement) {
     if (x1 == x2) {
       y1 = Math.min(y1, y2);
@@ -184,10 +212,11 @@ var OmegaPlot = React.createClass({
     var line = d3.svg.line().interpolate("monotone");
     return line(spring_data);
   },
+
   createDisplacementLine: function() {
     var self = this;
-    var data_to_plot = this.state.omegas["Reference"];
-    var secondary_data = this.state.omegas["Test"];
+    var data_to_plot = this.state.omegas[this.props.referenceGroup];
+    var secondary_data = this.state.omegas[this.props.testGroup];
 
     if (secondary_data) {
       var diffs = data_to_plot.map(function(d, i) {
@@ -218,9 +247,10 @@ var OmegaPlot = React.createClass({
         .attr("class", "hyphy-displacement-line");
     }
   },
+
   createReferenceLine: function() {
-    var data_to_plot = this.state.omegas["Reference"];
-    var secondary_data = this.state.omegas["Test"];
+    var data_to_plot = this.state.omegas[this.props.referenceGroup];
+    var secondary_data = this.state.omegas[this.props.testGroup];
     var self = this;
 
     if (secondary_data) {
@@ -253,9 +283,10 @@ var OmegaPlot = React.createClass({
       this.displacement_lines.remove();
     }
   },
+
   createOmegaLine: function() {
-    var data_to_plot = this.state.omegas["Reference"];
-    var secondary_data = this.state.omegas["Test"];
+    var data_to_plot = this.state.omegas[this.props.referenceGroup];
+    var secondary_data = this.state.omegas[this.props.testGroup];
     var self = this;
 
     // ** Omega Line (Red) ** //
@@ -283,12 +314,16 @@ var OmegaPlot = React.createClass({
       })
       .attr("class", "hyphy-omega-line");
   },
+
   createNeutralLine: function() {
     var self = this;
 
     // ** Neutral Line (Blue) ** //
     var neutral_line = this.plot.selectAll(".hyphy-neutral-line").data([1]);
-    neutral_line.enter().append("line").attr("class", "hyphy-neutral-line");
+    neutral_line
+      .enter()
+      .append("line")
+      .attr("class", "hyphy-neutral-line");
     neutral_line.exit().remove();
     neutral_line
       .transition()
@@ -301,12 +336,16 @@ var OmegaPlot = React.createClass({
       .attr("y1", 0)
       .attr("y2", this.plot_height);
   },
+
   createXAxis: function() {
     // *** X-AXIS *** //
-    var xAxis = d3.svg.axis().scale(this.omega_scale).orient("bottom");
+    var xAxis = d3.svg
+      .axis()
+      .scale(this.omega_scale)
+      .orient("bottom");
 
     if (this.do_log_plot) {
-      xAxis.ticks(10, this.has_zeros ? ".2r" : ".1r");
+      xAxis.ticks(10, ".0e");
     }
 
     var x_axis = this.svg.selectAll(".x.axis");
@@ -329,7 +368,11 @@ var OmegaPlot = React.createClass({
           (this.plot_height + this.margins["top"]) +
           ")"
       )
-      .call(xAxis);
+      .call(xAxis)
+      .selectAll("text")
+      .style("text-anchor", "end")
+      .attr("transform", "rotate(-45)");
+
     x_label = x_label
       .attr(
         "transform",
@@ -345,6 +388,7 @@ var OmegaPlot = React.createClass({
       .style("text-anchor", "end")
       .attr("dy", "0.0em");
   },
+
   createYAxis: function() {
     // *** Y-AXIS *** //
     var yAxis = d3.svg
@@ -381,27 +425,47 @@ var OmegaPlot = React.createClass({
       .attr("dy", "-1em");
   },
 
-  getInitialState: function() {
-    return {
-      omegas: this.props.omegas,
-      settings: this.props.settings
-    };
-  },
+  createLegend: function() {
+    let legendData = [20, 1000];
+    let legendColors = ["#00a99d", "black"];
+    let labels = [this.props.testGroup, this.props.referenceGroup];
+    let legendSquareSize = 20;
+    let legendSpacing = 5;
+    let legendX = this.props.settings.dimensions.width;
+    let fontSizeOffset = 15;
 
-  componentWillReceiveProps: function(nextProps) {
-    this.setState({
-      omegas: nextProps.omegas
-    });
-  },
+    var legend = this.svg
+      .selectAll(".legend")
+      .data(legendData)
+      .enter()
+      .append("g");
 
-  componentDidUpdate: function() {
-    d3.select("#" + this.svg_id).html("");
+    legend
+      .append("rect")
+      .attr("fill", function(d, i) {
+        return legendColors[i];
+      })
+      .attr("width", legendSquareSize)
+      .attr("height", legendSquareSize)
+      .attr("y", function(d, i) {
+        return legendSquareSize + i * (legendSquareSize + legendSpacing);
+      })
+      .attr("x", legendX);
 
-    this.initialize();
-  },
-
-  componentDidMount: function() {
-    this.initialize();
+    legend
+      .append("text")
+      .attr("class", "label")
+      .attr("y", function(d, i) {
+        return (
+          legendSquareSize +
+          (i * (legendSquareSize + legendSpacing) + fontSizeOffset)
+        );
+      })
+      .attr("x", legendX + legendSquareSize + 5)
+      .attr("text-anchor", "start")
+      .text(function(d, i) {
+        return labels[i];
+      });
   },
 
   render: function() {
@@ -412,36 +476,38 @@ var OmegaPlot = React.createClass({
     this.svg_id = key + "-svg";
     return (
       <div>
-        <div className="panel panel-default" id={key}>
-          <div className="panel-heading">
-            <h3 className="panel-title">
+        <div className="card" id={key} style={{ textAlign: "center" }}>
+          <div className="card-header">
+            <h3 className="card-title">
               &omega; distributions under the <strong>{label}</strong> model
             </h3>
-            <p>
-              <small>
-                Test branches are shown in{" "}
-                <span style={{color: '#00a99d', 'fontWeight':'bold'}}>green</span> and reference branches
-                are shown in <span style={{color: 'black', 'fontWeight':'bold'}}>black</span>
-              </small>
-            </p>
             <div className="btn-group">
               <button
-                onClick={()=>{d3_save_svg.save(d3.select('#'+self.svg_id).node(), {filename: "relax-chart"});}}
+                onClick={() => {
+                  d3_save_svg.save(d3.select("#" + self.svg_id).node(), {
+                    filename: "relax-chart"
+                  });
+                }}
                 type="button"
-                className="btn btn-default btn-sm"
+                className="btn.btn-secondary btn-sm"
               >
-                <span className="glyphicon glyphicon-floppy-save" /> SVG
+                <span className="far fa-save" /> SVG
               </button>
               <button
                 type="button"
-                className="btn btn-default btn-sm"
-                onClick={()=>{saveSvgAsPng(document.getElementById(self.svg_id), "relax-chart.png");}}
+                className="btn.btn-secondary btn-sm"
+                onClick={() => {
+                  saveSvgAsPng(
+                    document.getElementById(self.svg_id),
+                    "relax-chart.png"
+                  );
+                }}
               >
-                <span className="glyphicon glyphicon-floppy-save" /> PNG
+                <span className="far fa-save" /> PNG
               </button>
             </div>
           </div>
-          <div className="panel-body">
+          <div className="card-body">
             <svg id={this.svg_id} />
           </div>
         </div>
@@ -450,18 +516,31 @@ var OmegaPlot = React.createClass({
   }
 });
 
-var OmegaPlotGrid = React.createClass({
+var OmegaPlotGrid = createReactClass({
   getInitialState: function() {
-    return { omega_distributions: this.getDistributions(this.props.json) };
+    const referenceGroup = this.props.referenceGroup || "Reference";
+    return {
+      omega_distributions: this.getDistributions(
+        this.props.json,
+        referenceGroup
+      )
+    };
   },
 
   componentWillReceiveProps: function(nextProps) {
+    const referenceGroup = nextProps.referenceGroup || "Reference";
+    const testGroup = nextProps.testGroup || "Test";
     this.setState({
-      omega_distributions: this.getDistributions(nextProps.json)
+      omega_distributions: this.getDistributions(
+        nextProps.json,
+        referenceGroup
+      ),
+      referenceGroup: referenceGroup,
+      testGroup: testGroup
     });
   },
 
-  getDistributions: function(json) {
+  getDistributions: function(json, referenceGroup) {
     var omega_distributions = {};
 
     if (!json) {
@@ -483,18 +562,23 @@ var OmegaPlotGrid = React.createClass({
     }
 
     _.each(omega_distributions, function(item, key) {
-      item.key = key.slice(0,8).toLowerCase().replace(/ /g, "-");
+      item.key = key
+        .slice(0, 8)
+        .toLowerCase()
+        .replace(/ /g, "-");
       item.label = key;
     });
 
     var omega_distributions = _.filter(omega_distributions, function(item) {
-      return _.isObject(item["Reference"]);
+      return _.isObject(item[referenceGroup]);
     });
-
     return omega_distributions;
   },
 
   render: function() {
+    const referenceGroup = this.state.referenceGroup || "Reference";
+    const testGroup = this.state.testGroup || "Test";
+
     var OmegaPlots = _.map(this.state.omega_distributions, function(item, key) {
       var model_name = key;
       var omegas = item;
@@ -507,21 +591,24 @@ var OmegaPlotGrid = React.createClass({
         legend_id: null,
         do_log_plot: true,
         k_p: null,
-        plot: null
+        plot: null,
+        legendBuffer: 100
       };
 
       return (
-        <OmegaPlot name={model_name} omegas={omegas} settings={settings} key={omegas.key}/>
+        <OmegaPlot
+          name={model_name}
+          omegas={omegas}
+          settings={settings}
+          key={omegas.key}
+          referenceGroup={referenceGroup}
+          testGroup={testGroup}
+        />
       );
     });
 
-    return (
-      <div>
-        {OmegaPlots}
-      </div>
-    );
+    return <div>{OmegaPlots}</div>;
   }
 });
 
-module.exports.OmegaPlot = OmegaPlot;
-module.exports.OmegaPlotGrid = OmegaPlotGrid;
+export { OmegaPlot, OmegaPlotGrid };

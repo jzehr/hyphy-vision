@@ -4,13 +4,10 @@ var React = require("react"),
   chi = require("chi-squared");
 
 import { DatamonkeyTable } from "./components/tables.jsx";
-import {
-  DatamonkeyMultiScatterplot
-} from "./components/graphs.jsx";
-import { NavBar } from "./components/navbar.jsx";
+import { DatamonkeyMultiScatterplot } from "./components/graphs.jsx";
 import { ScrollSpy } from "./components/scrollspy.jsx";
 
-class PRIME extends React.Component {
+export class PRIME extends React.Component {
   constructor(props) {
     super(props);
 
@@ -74,7 +71,6 @@ class PRIME extends React.Component {
       this.initial_pvalue_threshold
     );
 
-
     // format data into variables usable by components
     var all_mle_props = _.flatten(
       _.map(results, d => {
@@ -82,7 +78,8 @@ class PRIME extends React.Component {
           _.values(_.omit(d["Full model"]["MLES"], "_felScaler")),
           _.values(d["pvalues"])
         );
-      }), true
+      }),
+      true
     );
 
     var changing_properties = _.filter(all_mle_props, d => {
@@ -185,7 +182,6 @@ class PRIME extends React.Component {
   }
 
   updatePvalThreshold(e) {
-
     var pvalue_threshold = parseFloat(e.target.value);
 
     var table_property_values = this.formatValuesForTable(
@@ -203,12 +199,11 @@ class PRIME extends React.Component {
       return d[0] > 0 && d[1] < pvalue_threshold;
     });
 
-
     this.setState({
       table_property_headers: this.state.table_property_headers,
       pvalue_threshold: pvalue_threshold,
       table_property_values: table_property_values,
-      conserved_properties : conserved_properties,
+      conserved_properties: conserved_properties,
       changing_properties: changing_properties
     });
   }
@@ -218,21 +213,23 @@ class PRIME extends React.Component {
 
     return (
       <div>
-        <div className="main-result">
+        <div className="main-result border border-primary border-left-0 border-right-0 mt-3">
           <p>
             <p>
-              PRIME {" "}
+              PRIME{" "}
               <strong className="hyphy-highlight"> found evidence </strong> of{" "}
             </p>
             <p>
               <span className="hyphy-highlight">
-                {" "} {self.state.conserved_properties.length} {" "}
+                {" "}
+                {self.state.conserved_properties.length}{" "}
               </span>
               conserved properties found.{" "}
             </p>
             <p>
               <span className="hyphy-highlight">
-                {" "} {self.state.changing_properties.length} {" "}
+                {" "}
+                {self.state.changing_properties.length}{" "}
               </span>
               changing properties found.{" "}
             </p>
@@ -264,10 +261,8 @@ class PRIME extends React.Component {
           <hr />
           <p>
             <small>
-              See {" "}
-              <a href="//hyphy.org/methods/selection-methods/#prime">
-                here{" "}
-              </a>{" "}
+              See{" "}
+              <a href="//hyphy.org/methods/selection-methods/#prime">here </a>{" "}
               for more information about the PRIME method <br />
               Please cite PMID <a href=""> TBA </a> if you use this result in a
               publication, presentation, or other scientific work
@@ -307,13 +302,14 @@ class PRIME extends React.Component {
 
     var order_table_rows = _.unzip(this.state.table_property_values);
 
+    // SDS 2-23-18: Make sure CSS for NavBar buffer consistent with other pages!
     return (
       <div>
         <div className="container">
           <div className="row">
             <ScrollSpy info={scrollspy_info} />
             <div className="col-sm-10">
-              <div className="clearance" id="summary-div"></div>
+              <div className="clearance" id="summary-div" />
               <div id="results">
                 <h3 className="list-group-item-heading">
                   <span id="summary-method-name">
@@ -326,7 +322,9 @@ class PRIME extends React.Component {
               </div>
 
               <div id="plot-tab" className="row hyphy-row">
-                <h3 className="dm-table-header">Property Importance Plot</h3>
+                <h3 className="dm-table-header mb-3">
+                  Property Importance Plot
+                </h3>
 
                 <DatamonkeyMultiScatterplot
                   x={this.state.codons}
@@ -340,7 +338,7 @@ class PRIME extends React.Component {
 
               <div id="table-tab" className="row hyphy-row">
                 <div id="hyphy-mle-fits" className="col-md-12">
-                  <h3 className="dm-table-header">Table Summary</h3>
+                  <h3 className="dm-table-header mb-3">Table Summary</h3>
 
                   <div className="col-md-6 alert alert-danger" role="alert">
                     Conserved properties with evidence are highlighted in red.
@@ -353,7 +351,7 @@ class PRIME extends React.Component {
                   <DatamonkeyTable
                     headerData={this.state.table_property_headers}
                     bodyData={order_table_rows}
-                    classes={"table table-condensed table-striped"}
+                    classes={"table table-smm table-striped"}
                     paginate={20}
                     export_csv
                   />
@@ -380,11 +378,9 @@ PRIME.defaultProps = {
 
 // Will need to make a call to this
 // omega distributions
-function prime(prime_results, element) {
+export default function prime(prime_results, element) {
   ReactDOM.render(
     <PRIME prime_results={prime_results} />,
     document.getElementById(element)
   );
 }
-
-module.exports = prime;

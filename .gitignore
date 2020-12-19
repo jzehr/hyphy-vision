@@ -15,6 +15,9 @@ vendor
 # vim files
 .*.swp
 
+# vs code files
+launch.json
+
 # mac
 .DS_Store
 
@@ -37,3 +40,7 @@ web/docs/public
 *.map
 jsx-compiled
 dist
+public
+
+tags*
+*yalc*

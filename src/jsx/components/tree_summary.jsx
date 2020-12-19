@@ -1,4 +1,5 @@
 var React = require("react"),
+  createReactClass = require("create-react-class"),
   _ = require("underscore");
 
 import { DatamonkeyTable } from "./tables.jsx";
@@ -8,7 +9,7 @@ import { DatamonkeyTable } from "./tables.jsx";
  * @param model -- the model to obtain information from
  * @param test results -- the general test result information
  */
-var TreeSummary = React.createClass({
+var TreeSummary = createReactClass({
   getDefaultProps() {
     return {
       model: {},
@@ -18,10 +19,10 @@ var TreeSummary = React.createClass({
 
   getInitialState: function() {
     var table_row_data = this.getSummaryRows(
-      this.props.model,
-      this.props.test_results,
-      this.props.branch_attributes
-    ),
+        this.props.model,
+        this.props.test_results,
+        this.props.branch_attributes
+      ),
       table_columns = this.getTreeSummaryColumns(table_row_data);
 
     return {
@@ -49,10 +50,15 @@ var TreeSummary = React.createClass({
   },
 
   getBranchLengthProportion: function(branch_attributes) {
-    var rate_classes = _.groupBy(branch_attributes, (val, key) => val['Rate Distributions'].length),
-      lengths = _.mapObject(rate_classes, (val,key)=>d3.sum(_.pluck(val,'Full adaptive model'))),
+    var rate_classes = _.groupBy(
+        branch_attributes,
+        (val, key) => val["Rate Distributions"].length
+      ),
+      lengths = _.mapObject(rate_classes, (val, key) =>
+        d3.sum(_.pluck(val, "Full adaptive model"))
+      ),
       total_length = d3.sum(_.values(lengths)),
-      percentages = _.mapObject(lengths, length=>length/total_length),
+      percentages = _.mapObject(lengths, length => length / total_length),
       formatter = d3.format(".2p"),
       formatted_percentages = _.mapObject(percentages, formatter);
     return formatted_percentages;
@@ -82,7 +88,6 @@ var TreeSummary = React.createClass({
 
     // Create an array of phylotrees from fits
 
-    var tree_length = model["tree length"];
     var branch_annotations = model["branch-annotations"];
     var rate_classes = this.getRateClasses(branch_annotations),
       proportions = this.getBranchProportion(rate_classes),
@@ -157,10 +162,10 @@ var TreeSummary = React.createClass({
 
   componentWillReceiveProps: function(nextProps) {
     var table_row_data = this.getSummaryRows(
-      nextProps.model,
-      nextProps.test_results,
-      nextProps.branch_attributes
-    ),
+        nextProps.model,
+        nextProps.test_results,
+        nextProps.branch_attributes
+      ),
       table_columns = this.getTreeSummaryColumns(table_row_data);
 
     this.setState({
@@ -172,7 +177,7 @@ var TreeSummary = React.createClass({
   render: function() {
     return (
       <div>
-        <h4 className="dm-table-header">
+        <h4 className="dm-table-header mb-3">
           Tree summary
           <span
             aria-hidden="true"
@@ -183,7 +188,12 @@ var TreeSummary = React.createClass({
             data-content="<ul><li>Hover over a column header for a description of its content.</li></ul>"
             data-placement="bottom"
             className="glyphicon glyphicon-info-sign"
-            style={{ verticalAlign: "middle", float: "right", minHeight: "30px", minWidth: "30px"}}
+            style={{
+              verticalAlign: "middle",
+              float: "right",
+              minHeight: "30px",
+              minWidth: "30px"
+            }}
           />
         </h4>
         <DatamonkeyTable
@@ -216,6 +226,4 @@ function rerender_tree_summary(tree, element) {
   render_tree_summary(tree, element);
 }
 
-module.exports.TreeSummary = TreeSummary;
-module.exports.render_tree_summary = render_tree_summary;
-module.exports.rerender_tree_summary = rerender_tree_summary;
+export { TreeSummary, render_tree_summary, rerender_tree_summary };

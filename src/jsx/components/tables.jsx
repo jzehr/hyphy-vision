@@ -1,13 +1,27 @@
 var React = require("react"),
+  createReactClass = require("create-react-class"),
   _ = require("underscore"),
   d3 = require("d3"),
   datamonkey = require("../../datamonkey/datamonkey.js");
 
-require('csvexport');
+import { ExportToCsv } from 'export-to-csv';
+import PropTypes from "prop-types";
 
-import PropTypes from 'prop-types';
+const tableOptions = { 
+  fieldSeparator: ',',
+  quoteStrings: '"',
+  decimalSeparator: '.',
+  showLabels: true, 
+  title: 'Datamonkey Report',
+  showTitle: false,
+  filename:'datamonkey-table',
+  useTextFile: false,
+  useBom: true,
+  useKeysAsHeaders: true,
+  // headers: ['Column 1', 'Column 2', etc...] <-- Won't work with useKeysAsHeaders present!
+};
 
-const DatamonkeyTableRow = React.createClass({
+const DatamonkeyTableRow = createReactClass({
   /**
       A single table row
 
@@ -28,9 +42,11 @@ const DatamonkeyTableRow = React.createClass({
 
               3. array: directly render array elements in the cell (must be renderable to react.js; note that plain
               text elements will be wrapped in "span" which is not allowed to nest in <th/td>
-
-
+      
       *header* is a bool indicating whether the header is a header row (th cells) or a regular row (td cells)
+  
+      *onClick* an onClick event to apply to the entire row. Will be called with the rowData (see 1 above) as the argument.
+
   */
 
   /*propTypes: {
@@ -115,11 +131,16 @@ const DatamonkeyTableRow = React.createClass({
   },
 
   shouldComponentUpdate: function(nextProps) {
-
     var self = this;
 
     if (this.state.header !== nextProps.header) {
       return true;
+    }
+
+    if (this.state.header) {
+      if (this.props.rowData !== nextProps.rowData) {
+        return true;
+      }
     }
 
     if (this.props.sortOn != nextProps.sortOn) {
@@ -127,9 +148,8 @@ const DatamonkeyTableRow = React.createClass({
     }
 
     var result = _.some(this.props.rowData, function(value, index) {
-
       // check for format and other field equality
-      if(!_.isMatch(value, nextProps.rowData[index])) {
+      if (!_.isMatch(value, nextProps.rowData[index])) {
         return true;
       }
 
@@ -180,7 +200,7 @@ const DatamonkeyTableRow = React.createClass({
   render: function() {
     var entity_regex = /(&*;)|(<*>)/;
     return (
-      <tr>
+      <tr onClick={this.props.onClick}>
         {this.props.rowData.map(
           _.bind(function(cell, index) {
             var value = _.has(cell, "value") ? cell.value : cell;
@@ -202,22 +222,24 @@ const DatamonkeyTableRow = React.createClass({
             }
 
             if (_.has(cell, "abbr")) {
-              value = entity_regex.test(value)
-                ? <span
-                    data-toggle="tooltip"
-                    data-placement="top"
-                    data-html="true"
-                    title={cell.abbr}
-                    dangerouslySetInnerHTML={{ __html: value }}
-                  />
-                : <span
-                    data-toggle="tooltip"
-                    data-placement="top"
-                    data-html="true"
-                    title={cell.abbr}
-                  >
-                    {value}
-                  </span>;
+              value = entity_regex.test(value) ? (
+                <span
+                  data-toggle="tooltip"
+                  data-placement="top"
+                  data-html="true"
+                  title={cell.abbr}
+                  dangerouslySetInnerHTML={{ __html: value }}
+                />
+              ) : (
+                <span
+                  data-toggle="tooltip"
+                  data-placement="top"
+                  data-html="true"
+                  title={cell.abbr}
+                >
+                  {value}
+                </span>
+              );
             }
 
             var cellProps = { key: index };
@@ -241,29 +263,31 @@ const DatamonkeyTableRow = React.createClass({
 
             if (this.state.header && this.props.sorter) {
               if (_.has(cell, "sortable")) {
-                cellProps["onClick"] = _.partial(
-                  this.props.sorter,
-                  index,
-                  this.dm_compareTwoValues_level2
-                );
+                if (cell.sortable) {
+                  cellProps["onClick"] = _.partial(
+                    this.props.sorter,
+                    index,
+                    this.dm_compareTwoValues_level2
+                  );
 
-                var sortedness_state = "fa fa-sort";
-                if (this.props.sortOn && this.props.sortOn[0] == index) {
-                  sortedness_state = this.props.sortOn[1]
-                    ? "fa fa-sort-amount-asc"
-                    : "fa fa-sort-amount-desc";
+                  var sortedness_state = "fa fa-sort";
+                  if (this.props.sortOn && this.props.sortOn[0] == index) {
+                    sortedness_state = this.props.sortOn[1]
+                      ? "fa fa-sort-amount-asc"
+                      : "fa fa-sort-amount-desc";
+                  }
+
+                  value = (
+                    <div>
+                      {value}
+                      <i
+                        className={sortedness_state}
+                        aria-hidden="true"
+                        style={{ marginLeft: "0.5em" }}
+                      />
+                    </div>
+                  );
                 }
-
-                value = (
-                  <div>
-                    {value}
-                    <i
-                      className={sortedness_state}
-                      aria-hidden="true"
-                      style={{ marginLeft: "0.5em" }}
-                    />
-                  </div>
-                );
               }
             }
 
@@ -279,20 +303,23 @@ const DatamonkeyTableRow = React.createClass({
   }
 });
 
-/**
- * A table composed of rows
- * @param *headerData* -- an array of cells (see DatamonkeyTableRow) to render as the header
- * @param *bodyData* -- an array of arrays of cells (rows) to render
- * @param *classes* -- CSS classes to apply to the table element
- * @example
- * header = ["Model","AIC","Parameters"]
- * rows = [[{"value":"MG94","style":{"fontVariant":"small-caps"}},{"value":0},46],
- *         [{"value":"Full model","style":{"fontVariant":"small-caps"}},{"value":6954.016129926898},60]]
- */
-var DatamonkeyTable = React.createClass({
+var DatamonkeyTable = createReactClass({
+  /**
+   * A table composed of rows
+   * @param *headerData* -- an array of cells (see DatamonkeyTableRow) to render as the header
+   * @param *bodyData* -- an array of arrays of cells (rows) to render
+   * @param *classes* -- CSS classes to apply to the table element
+   * @param *onClick* -- onClick events to attach to the row
+   * @example
+   * header = ["Model","AIC","Parameters"]
+   * rows = [[{"value":"MG94","style":{"fontVariant":"small-caps"}},{"value":0},46],
+   *         [{"value":"Full model","style":{"fontVariant":"small-caps"}},{"value":6954.016129926898},60]]
+   * onClick = {functionDefinedInParentComponent}
+   *
+   */
   getDefaultProps: function() {
     return {
-      classes: "dm-table table table-condensed table-hover",
+      classes: "dm-table table table-smm table-hover table-striped",
       rowHash: null
     };
   },
@@ -319,7 +346,8 @@ var DatamonkeyTable = React.createClass({
     this.setState({
       rowOrder: _.range(0, nextProps.bodyData.length),
       headerData: nextProps.headerData,
-      current: nextProps.bodyData.length < this.state.current ? 0 : this.state.current
+      current:
+        nextProps.bodyData.length < this.state.current ? 0 : this.state.current
     });
   },
 
@@ -400,11 +428,17 @@ var DatamonkeyTable = React.createClass({
     });
   },
 
-  componentDidMount: function() {
-  },
+  componentDidMount: function() {},
 
   componentDidUpdate: function() {
     $('[data-toggle="tooltip"]').tooltip();
+  },
+
+  rowOnClick: function(rowData) {
+    // Wraping the rowOnClick function as a method like this to avoid errors if no onClick property is present.
+    if (this.props.onClick) {
+      this.props.onClick(rowData);
+    }
   },
 
   render: function() {
@@ -419,109 +453,97 @@ var DatamonkeyTable = React.createClass({
       );
 
     if (this.props.paginate) {
-      if(this.props.export_csv){
-        var exportCSV = function(){
-          function extract(d){
-            return _.isObject(d) ? d.value : d
+      if (this.props.export_csv) {
+        var exportCSV = function() {
+          function extract(d) {
+            return _.isObject(d) ? d.value : d;
           }
           var headers = _.map(self.props.headerData, extract),
-            munged = _.map(self.props.bodyData, row=>_.map(row, extract))
-              .map(row=>_.object(headers, row)),
-            exporter = Export.create();
-          exporter.downloadCsv(munged);
+            munged = _.map(self.props.bodyData, row =>
+              _.map(row, extract)
+            ).map(row => _.object(headers, row));
+          const exporter = new ExportToCsv(tableOptions);
+          //const exporter = CsvExport.create({
+          //  filename: "datamonkey-table.csv"
+          //});
+          exporter.generateCsv(munged);
         };
-        button = <button
-          id="export-csv"
-          type="button"
-          className="btn btn-default btn-sm pull-right"
-          onClick={exportCSV}
-        >
-          <span className="glyphicon glyphicon-floppy-save" /> Export Table to CSV
-        </button>
-
+        button = (
+          <button
+            id="export-csv"
+            type="button"
+            className="btn.btn-secondary btn-sm float-right btn-export-csv-round"
+            onClick={exportCSV}
+          >
+            <span className="far fa-save" /> Export Table to CSV
+          </button>
+        );
       }
       paginatorControls = (
-      <div>
+        <div className="container">
+          <div className="row">
+            <div className="col-4">
+              <p>
+                Showing entries {this.state.current + 1} through {upperLimit}{" "}
+                out of {this.state.rowOrder.length}.
+              </p>
 
-          <div className="col-md-12">
-            <p>
-              Showing entries {this.state.current + 1} through {upperLimit} out
-              of {this.state.rowOrder.length}.
-            </p>
-          </div>
-
-          <div className="col-md-3">
-            <div
-              className="btn-group btn-group-justified"
-              role="group"
-              aria-label="..."
-            >
-              <div className="btn-group" role="group">
-                <button
-                  type="button"
-                  className="btn btn-default"
-                  onClick={self.regress}
-                  data-toggle="tooltip"
-                  title={"Move backwards " + this.props.paginate + " rows."}
-                >
-                  <span
-                    className="glyphicon glyphicon-backward"
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
-              <div className="btn-group" role="group">
-                <button
-                  type="button"
-                  className="btn btn-default"
-                  onClick={self.decrement}
-                  data-toggle="tooltip"
-                  title="Move backwards one row."
-                >
-                  <span
-                    className="glyphicon glyphicon-chevron-left"
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
-              <div className="btn-group" role="group">
-                <button
-                  type="button"
-                  className="btn btn-default"
-                  onClick={self.increment}
-                  data-toggle="tooltip"
-                  title="Move forwards one row."
-                >
-                  <span
-                    className="glyphicon glyphicon-chevron-right"
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
-              <div className="btn-group" role="group">
-                <button
-                  type="button"
-                  className="btn btn-default"
-                  onClick={self.advance}
-                  data-toggle="tooltip"
-                  title={"Move forwards " + this.props.paginate + " rows."}
-                >
-                  <span
-                    className="glyphicon glyphicon-forward"
-                    aria-hidden="true"
-                  />
-                </button>
+              <div className="btn-group d-flex" role="group" aria-label="...">
+                <div className="btn-group" role="group">
+                  <button
+                    type="button"
+                    className="btn.btn-secondary"
+                    onClick={self.regress}
+                    data-toggle="tooltip"
+                    title={"Move backwards " + this.props.paginate + " rows."}
+                  >
+                    <span
+                      className="fas fa-angle-double-left"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
+                <div className="btn-group" role="group">
+                  <button
+                    type="button"
+                    className="btn.btn-secondary"
+                    onClick={self.decrement}
+                    data-toggle="tooltip"
+                    title="Move backwards one row."
+                  >
+                    <span className="fas fa-angle-left" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="btn-group" role="group">
+                  <button
+                    type="button"
+                    className="btn.btn-secondary"
+                    onClick={self.increment}
+                    data-toggle="tooltip"
+                    title="Move forwards one row."
+                  >
+                    <span className="fas fa-angle-right" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="btn-group" role="group">
+                  <button
+                    type="button"
+                    className="btn.btn-secondary"
+                    onClick={self.advance}
+                    data-toggle="tooltip"
+                    title={"Move forwards " + this.props.paginate + " rows."}
+                  >
+                    <span
+                      className="fas fa-angle-double-right"
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
+            <div className="col-8 ml-auto align-bottom">{button}</div>
           </div>
-          
-          <div className="col-md-6"></div>
-          
-          <div className="col-md-3">
-            {button}
-          </div>
-        
-      </div>
+        </div>
       );
     } else {
       paginatorControls = "";
@@ -586,6 +608,7 @@ var DatamonkeyTable = React.createClass({
                     : row_index
                 }
                 header={false}
+                onClick={() => this.rowOnClick(componentData)}
               />
             );
           }, this)
@@ -595,17 +618,15 @@ var DatamonkeyTable = React.createClass({
     return (
       <div className="row">
         {paginatorControls}
-        <div className="col-md-12">
-          <table className={this.props.classes}>
-            {children}
-          </table>
+        <div className="col-md-12 hyphy-vision-datamonkey-table">
+          <table className={this.props.classes}>{children}</table>
         </div>
       </div>
     );
   }
 });
 
-var DatamonkeyRateDistributionTable = React.createClass({
+var DatamonkeyRateDistributionTable = createReactClass({
   /** render a rate distribution table from JSON formatted like this
   {
        "non-synonymous/synonymous rate ratio for *background*":[ // name of distribution
@@ -617,10 +638,6 @@ var DatamonkeyRateDistributionTable = React.createClass({
   }
 
   */
-
-  propTypes: {
-    distribution: PropTypes.object.isRequired
-  },
 
   dm_formatterRate: d3.format(".3r"),
   dm_formatterProp: d3.format(".3p"),
@@ -657,13 +674,13 @@ var DatamonkeyRateDistributionTable = React.createClass({
     return (
       <DatamonkeyTable
         bodyData={this.dm_createDistributionTable(this.props.distribution)}
-        classes={"table table-condensed"}
+        classes={"table table-smm"}
       />
     );
   }
 });
 
-var DatamonkeyPartitionTable = React.createClass({
+var DatamonkeyPartitionTable = createReactClass({
   dm_formatterFloat: d3.format(".3r"),
   dm_formatterProp: d3.format(".3p"),
 
@@ -710,7 +727,7 @@ var DatamonkeyPartitionTable = React.createClass({
       var testedLength = extractBranchLength
         ? datamonkey.helpers.sum(attributes[key], function(v, k) {
             if (tested[k.toUpperCase()]) {
-              return v[extractBranchLength];
+              return v[extractBranchLength] || 0;
             }
             return 0;
           })
@@ -859,7 +876,7 @@ var DatamonkeyPartitionTable = React.createClass({
   }
 });
 
-var DatamonkeyModelTable = React.createClass({
+var DatamonkeyModelTable = createReactClass({
   // render a model fit table from a JSON object with entries like this
   //     "Global MG94xREV":{  model name
   //          "log likelihood":-5453.527975908821,
@@ -919,7 +936,7 @@ var DatamonkeyModelTable = React.createClass({
   },
 
   propTypes: {
-    fits: PropTypes.object.isRequired
+    fits: PropTypes.object
   },
 
   getDefaultProps: function() {
@@ -1033,11 +1050,16 @@ var DatamonkeyModelTable = React.createClass({
   render: function() {
     return (
       <div>
-        <h4 className="dm-table-header">
+        <h4 className="dm-table-header mb-3">
           Model fits
           <span
-            className="glyphicon glyphicon-info-sign"
-            style={{ verticalAlign: "middle", float: "right", minHeight:"30px", minWidth: "30px"}}
+            className="fas fa-info-circle"
+            style={{
+              verticalAlign: "middle",
+              float: "right",
+              minHeight: "30px",
+              minWidth: "30px"
+            }}
             aria-hidden="true"
             data-toggle="popover"
             data-trigger="hover"
@@ -1056,7 +1078,7 @@ var DatamonkeyModelTable = React.createClass({
   }
 });
 
-var DatamonkeyTimersTable = React.createClass({
+var DatamonkeyTimersTable = createReactClass({
   dm_percentageFormatter: d3.format(".2%"),
 
   propTypes: {
@@ -1064,7 +1086,7 @@ var DatamonkeyTimersTable = React.createClass({
   },
 
   dm_formatSeconds: function(seconds) {
-    var fields = [~~(seconds / 3600), ~~(seconds % 3600 / 60), seconds % 60];
+    var fields = [~~(seconds / 3600), ~~((seconds % 3600) / 60), seconds % 60];
 
     return _.map(fields, function(d) {
       return d < 10 ? "0" + d : "" + d;
@@ -1138,9 +1160,11 @@ var DatamonkeyTimersTable = React.createClass({
   }
 });
 
-module.exports.DatamonkeyTable = DatamonkeyTable;
-module.exports.DatamonkeyTableRow = DatamonkeyTableRow;
-module.exports.DatamonkeyRateDistributionTable = DatamonkeyRateDistributionTable;
-module.exports.DatamonkeyPartitionTable = DatamonkeyPartitionTable;
-module.exports.DatamonkeyModelTable = DatamonkeyModelTable;
-module.exports.DatamonkeyTimersTable = DatamonkeyTimersTable;
+export {
+  DatamonkeyTable,
+  DatamonkeyTableRow,
+  DatamonkeyRateDistributionTable,
+  DatamonkeyPartitionTable,
+  DatamonkeyModelTable,
+  DatamonkeyTimersTable
+};

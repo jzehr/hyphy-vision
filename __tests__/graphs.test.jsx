@@ -3,17 +3,19 @@
 jest.unmock("../src/jsx/components/graphs.jsx");
 
 import React from "react";
-import ReactDOM from "react-dom";
-import TestUtils from "react-dom/test-utils";
 import renderer from "react-test-renderer";
 import {
   DatamonkeySeries,
   DatamonkeyScatterplot,
   DatamonkeyGraphMenu
 } from "../src/jsx/components/graphs.jsx";
+import Enzyme from "enzyme";
+import Adapter from "enzyme-adapter-react-16";
 import { mount } from "enzyme";
 
 var _ = require("underscore");
+
+Enzyme.configure({ adapter: new Adapter() });
 
 describe("DatamonkeySeries", () => {
   var x = _.range(10);
@@ -60,7 +62,6 @@ describe("DatamonkeyScatterplot", () => {
   });
 });
 
-
 describe("GraphMenu", () => {
   var x_options = ["Site"];
   var y_options = ["alpha", "beta"];
@@ -94,11 +95,5 @@ describe("GraphMenu", () => {
 
     let menu = no_ylabel_component.toJSON();
     expect(menu).toMatchSnapshot();
-
-
-
   });
-
-
-
 });

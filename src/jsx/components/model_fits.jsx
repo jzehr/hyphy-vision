@@ -1,6 +1,7 @@
-var React = require("react");
+var React = require("react"),
+  createReactClass = require("create-react-class");
 
-var ModelFits = React.createClass({
+var ModelFits = createReactClass({
   getInitialState: function() {
     var table_row_data = this.getModelRows(this.props.json),
       table_columns = this.getModelColumns(table_row_data);
@@ -16,11 +17,11 @@ var ModelFits = React.createClass({
       seconds = parseFloat(seconds);
 
     var split_array = [
-      Math.floor(seconds / (24 * 3600)),
-      Math.floor(seconds / 3600) % 24,
-      Math.floor(seconds / 60) % 60,
-      seconds % 60
-    ],
+        Math.floor(seconds / (24 * 3600)),
+        Math.floor(seconds / 3600) % 24,
+        Math.floor(seconds / 60) % 60,
+        seconds % 60
+      ],
       quals = ["d.", "hrs.", "min.", "sec."];
 
     split_array.forEach(function(d, i) {
@@ -242,11 +243,16 @@ var ModelFits = React.createClass({
   render: function() {
     return (
       <div>
-        <h4 className="dm-table-header">
+        <h4 className="dm-table-header mb-3">
           Model fits
           <span
             className="glyphicon glyphicon-info-sign"
-            style={{ verticalAlign: "middle", float: "right", minHeight:"30px", minWidth: "30px"}}
+            style={{
+              verticalAlign: "middle",
+              float: "right",
+              minHeight: "30px",
+              minWidth: "30px"
+            }}
             aria-hidden="true"
             data-toggle="popover"
             data-trigger="hover"
@@ -257,7 +263,7 @@ var ModelFits = React.createClass({
           />
         </h4>
         <table
-          className="dm-table table table-hover table-condensed list-group-item-text"
+          className="dm-table table table-hover table-smm list-group-item-text"
           style={{ marginTop: "0.5em" }}
         >
           <thead id="summary-model-header1" />
@@ -281,6 +287,4 @@ function rerender_model_fits(json, element) {
   render_model_fits(json, element);
 }
 
-module.exports.ModelFits = ModelFits;
-module.exports.render_model_fits = render_model_fits;
-module.exports.rerender_model_fits = rerender_model_fits;
+export { ModelFits, render_model_fits, rerender_model_fits };

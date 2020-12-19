@@ -94,18 +94,10 @@ exports[`GraphMenu Graph menu should handle empty y_options 1`] = `
   }
 >
   <form
-    className="navbar-form"
+    className="navbar-form col-8"
   >
-    <div
-      className="form-group navbar-left"
-    >
-      <div
-        className="input-group"
-      >
-        <div />
-        <div />
-      </div>
-    </div>
+    <div />
+    <div />
   </form>
 </nav>
 `;
